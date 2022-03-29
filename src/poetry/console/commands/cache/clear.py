@@ -19,17 +19,15 @@ class CacheClearCommand(Command):
     def handle(self) -> int:
         from cachy import CacheManager
 
-        from poetry.locations import REPOSITORY_CACHE_DIR
-
-        cache = self.argument("cache")
-
-        parts = cache.split(":")
+        cache_arg: str = self.argument("cache")
+        parts = cache_arg.split(":")
         root = parts[0]
 
-        cache_dir = REPOSITORY_CACHE_DIR / root
+        repo_cache_dir = self.poetry.config.get_repo_cache_dir()
+        cache_dir = repo_cache_dir / root
 
         try:
-            cache_dir.relative_to(REPOSITORY_CACHE_DIR)
+            cache_dir.relative_to(repo_cache_dir)
         except ValueError:
             raise ValueError(f"{root} is not a valid repository cache")
 

@@ -24,7 +24,7 @@ from poetry.core.semver.version_range import VersionRange
 from poetry.core.version.exceptions import InvalidVersion
 from poetry.core.version.markers import parse_marker
 
-from poetry.locations import REPOSITORY_CACHE_DIR
+from poetry.config.config import Config
 from poetry.repositories.exceptions import PackageNotFound
 from poetry.repositories.remote_repository import RemoteRepository
 from poetry.utils._compat import to_str
@@ -51,14 +51,15 @@ class PyPiRepository(RemoteRepository):
         url: str = "https://pypi.org/",
         disable_cache: bool = False,
         fallback: bool = True,
+        config: Config | None = None,
     ) -> None:
         super().__init__(url.rstrip("/") + "/simple/")
 
         self._base_url = url
         self._disable_cache = disable_cache
         self._fallback = fallback
-
-        release_cache_dir = REPOSITORY_CACHE_DIR / "pypi"
+        self._config = config or Config()
+        release_cache_dir = self._config.get_repo_cache_dir() / "pypi"
         self._cache = CacheManager(
             {
                 "default": "releases",

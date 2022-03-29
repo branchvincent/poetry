@@ -29,7 +29,6 @@ from poetry.core.semver.version_range import VersionRange
 
 from poetry.config.config import Config
 from poetry.inspection.info import PackageInfo
-from poetry.locations import REPOSITORY_CACHE_DIR
 from poetry.repositories.exceptions import PackageNotFound
 from poetry.repositories.exceptions import RepositoryError
 from poetry.repositories.pypi_repository import PyPiRepository
@@ -167,7 +166,8 @@ class LegacyRepository(PyPiRepository):
         self._url = url.rstrip("/")
         self._client_cert = client_cert
         self._cert = cert
-        self._cache_dir = REPOSITORY_CACHE_DIR / name
+        self._config = config or Config()
+        self._cache_dir = self._config.get_repo_cache_dir() / name
         self._cache = CacheManager(
             {
                 "default": "releases",
@@ -180,9 +180,7 @@ class LegacyRepository(PyPiRepository):
             }
         )
 
-        self._authenticator = Authenticator(
-            config=config or Config(use_environment=True)
-        )
+        self._authenticator = Authenticator(config=self._config)
 
         self._session = CacheControl(
             self._authenticator.session, cache=FileCache(str(self._cache_dir / "_http"))

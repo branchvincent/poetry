@@ -19,12 +19,12 @@ from poetry.config.config import int_normalizer
 if TYPE_CHECKING:
     from pathlib import Path
 
+KNOWN_KEYS = FlatDict(Config.default_config, delimiter=".").keys()
 
-def get_options_based_on_normalizer(normalizer: Callable) -> str:
-    flattened_config = FlatDict(Config.default_config, delimiter=".")
 
-    for k in flattened_config:
-        if Config._get_normalizer(k) == normalizer:
+def get_options_based_on_normalizer(normalizer: Callable) -> Iterator[str]:
+    for k in KNOWN_KEYS:
+        if Config._get_validator_and_normalizer(k)[1] == normalizer:
             yield k
 
 
@@ -66,3 +66,12 @@ def test_config_get_from_environment_variable(
 ):
     os.environ[env_var] = env_value
     assert config.get(name) is value
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [(k, True) for k in KNOWN_KEYS]
+    + [(k, False) for k in {"foo", "bar", "virtualenvs", "virtualenvs.options"}],
+)
+def test_config_is_key_valid(config: Config, name: str, expected: bool):
+    assert config.is_key_valid(name) is expected

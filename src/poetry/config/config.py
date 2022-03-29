@@ -4,6 +4,7 @@ import os
 import re
 
 from copy import deepcopy
+from functools import reduce
 from pathlib import Path
 from typing import TYPE_CHECKING
 from typing import Any
@@ -15,6 +16,9 @@ from poetry.locations import CACHE_DIR
 
 if TYPE_CHECKING:
     from poetry.config.config_source import ConfigSource
+
+Validator = Callable[[str], Any]
+Normalizer = Callable[[str], Any]
 
 
 def boolean_validator(val: str) -> bool:
@@ -32,7 +36,7 @@ def int_normalizer(val: str) -> int:
 class Config:
 
     default_config: dict[str, Any] = {
-        "cache-dir": str(CACHE_DIR),
+        "cache-dir": CACHE_DIR,
         "virtualenvs": {
             "create": True,
             "in-project": None,
@@ -115,7 +119,8 @@ class Config:
             env = "POETRY_" + "_".join(k.upper().replace("-", "_") for k in keys)
             env_value = os.getenv(env)
             if env_value is not None:
-                return self.process(self._get_normalizer(setting_name)(env_value))
+                _, normalizer = self._get_validator_and_normalizer(setting_name)
+                return self.process(normalizer(env_value))
 
         value = self._config
         for key in keys:
@@ -126,6 +131,9 @@ class Config:
 
         return self.process(value)
 
+    def get_repo_cache_dir(self) -> Path:
+        return Path(self.get("cache-dir")) / "cache" / "repositories"
+
     def process(self, value: Any) -> Any:
         if not isinstance(value, str):
             return value
@@ -133,7 +141,7 @@ class Config:
         return re.sub(r"{(.+?)}", lambda m: self.get(m.group(1)), value)
 
     @staticmethod
-    def _get_normalizer(name: str) -> Callable:
+    def _get_validator_and_normalizer(name: str) -> tuple[Validator, Normalizer]:
         if name in {
             "virtualenvs.create",
             "virtualenvs.in-project",
@@ -143,12 +151,21 @@ class Config:
             "experimental.new-installer",
             "installer.parallel",
         }:
-            return boolean_normalizer
+            return boolean_validator, boolean_normalizer
 
-        if name == "virtualenvs.path":
-            return lambda val: str(Path(val))
+        if name in {"cache-dir", "virtualenvs.path"}:
+            return str, lambda val: str(Path(val))
 
         if name == "installer.max-workers":
-            return int_normalizer
+            return lambda val: int(val) > 0, int_normalizer
 
-        return lambda val: val
+        return lambda val: val, lambda val: val
+
+    @classmethod
+    def is_key_valid(cls, key: str) -> bool:
+        try:
+            value = reduce(lambda d, k: d[k], key.split("."), cls.default_config)
+            is_leaf = not isinstance(value, dict)
+            return is_leaf
+        except KeyError:
+            return False

@@ -2,28 +2,23 @@ from __future__ import annotations
 
 import uuid
 
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
 
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
-    from _pytest.monkeypatch import MonkeyPatch
     from cleo.testers.command_tester import CommandTester
 
+    from poetry.config.config import Config
     from tests.types import CommandTesterFactory
 
 
 @pytest.fixture
-def repository_cache_dir(monkeypatch: MonkeyPatch, tmpdir: Path) -> Path:
-    from pathlib import Path
-
-    import poetry.locations
-
-    path = Path(str(tmpdir))
-    monkeypatch.setattr(poetry.locations, "REPOSITORY_CACHE_DIR", path)
+def repository_cache_dir(config: Config) -> Path:
+    path = Path(config.get("cache-dir")) / "cache" / "repositories"
+    path.mkdir(parents=True)
     return path
 
 

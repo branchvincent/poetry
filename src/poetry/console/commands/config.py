@@ -45,62 +45,6 @@ To remove a repository (repo is a short alias for repositories):
 
     LIST_PROHIBITED_SETTINGS = {"http-basic", "pypi-token"}
 
-    @property
-    def unique_config_values(self) -> dict[str, tuple[Any, Any, Any]]:
-        from pathlib import Path
-
-        from poetry.config.config import boolean_normalizer
-        from poetry.config.config import boolean_validator
-        from poetry.config.config import int_normalizer
-        from poetry.locations import CACHE_DIR
-
-        unique_config_values = {
-            "cache-dir": (
-                str,
-                lambda val: str(Path(val)),
-                str(Path(CACHE_DIR) / "virtualenvs"),
-            ),
-            "virtualenvs.create": (boolean_validator, boolean_normalizer, True),
-            "virtualenvs.in-project": (boolean_validator, boolean_normalizer, False),
-            "virtualenvs.options.always-copy": (
-                boolean_validator,
-                boolean_normalizer,
-                False,
-            ),
-            "virtualenvs.options.system-site-packages": (
-                boolean_validator,
-                boolean_normalizer,
-                False,
-            ),
-            "virtualenvs.path": (
-                str,
-                lambda val: str(Path(val)),
-                str(Path(CACHE_DIR) / "virtualenvs"),
-            ),
-            "virtualenvs.prefer-active-python": (
-                boolean_validator,
-                boolean_normalizer,
-                False,
-            ),
-            "experimental.new-installer": (
-                boolean_validator,
-                boolean_normalizer,
-                True,
-            ),
-            "installer.parallel": (
-                boolean_validator,
-                boolean_normalizer,
-                True,
-            ),
-            "installer.max-workers": (
-                lambda val: int(val) > 0,
-                int_normalizer,
-                None,
-            ),
-        }
-
-        return unique_config_values
-
     def handle(self) -> int | None:
         from pathlib import Path
 
@@ -158,7 +102,7 @@ To remove a repository (repo is a short alias for repositories):
 
                 self.line(str(value))
             else:
-                if setting_key not in self.unique_config_values:
+                if not config.is_key_valid(setting_key):
                     raise ValueError(f"There is no {setting_key} setting.")
 
                 value = config.get(setting_key)
@@ -172,8 +116,7 @@ To remove a repository (repo is a short alias for repositories):
 
         values: list[str] = self.argument("value")
 
-        unique_config_values = self.unique_config_values
-        if setting_key in unique_config_values:
+        if config.is_key_valid(setting_key):
             if self.option("unset"):
                 config.config_source.remove_property(setting_key)
                 return None
@@ -181,7 +124,7 @@ To remove a repository (repo is a short alias for repositories):
             return self._handle_single_value(
                 config.config_source,
                 setting_key,
-                unique_config_values[setting_key],
+                *config._get_validator_and_normalizer(setting_key),
                 values,
             )
 
@@ -280,11 +223,10 @@ To remove a repository (repo is a short alias for repositories):
         self,
         source: ConfigSource,
         key: str,
-        callbacks: tuple[Any, Any, Any],
+        validator: Any,
+        normalizer: Any,
         values: list[Any],
     ) -> int:
-        validator, normalizer, _ = callbacks
-
         if len(values) > 1:
             raise RuntimeError("You can only pass one value.")
 

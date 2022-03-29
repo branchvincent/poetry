@@ -13,8 +13,6 @@ CACHE_DIR = user_cache_dir("pypoetry")
 DATA_DIR = user_data_dir("pypoetry")
 CONFIG_DIR = user_config_dir("pypoetry")
 
-REPOSITORY_CACHE_DIR = Path(CACHE_DIR) / "cache" / "repositories"
-
 
 def data_dir() -> Path:
     poetry_home = os.getenv("POETRY_HOME")
